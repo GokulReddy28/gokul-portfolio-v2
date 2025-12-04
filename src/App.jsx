@@ -1,6 +1,5 @@
-// ---------------- PART 1 of 4 ----------------
-// src/App.jsx (part 1) — imports, globals, App start, repo fetch, theme, header
-import React, { useEffect, useState } from "react";
+// src/App.jsx — PART 1 of 3
+import React, { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import emailjs from "@emailjs/browser";
 
@@ -8,16 +7,15 @@ import emailjs from "@emailjs/browser";
 const GITHUB_USER = "GokulReddy28";
 const GITHUB_API = `https://api.github.com/users/${GITHUB_USER}/repos?per_page=100&sort=updated`;
 
-// EmailJS credentials (you already created these)
+// EmailJS credentials (your values)
 const EMAILJS_SERVICE = "service_1b70yuk";
 const EMAILJS_TEMPLATE = "template_v3cf3m9";
 const EMAILJS_PUBLICKEY = "nz5aMvVJAtpFm3p-n";
 
-// Contact / socials
 const LINKEDIN = "https://www.linkedin.com/in/gokul-nanda-hv-677b8137a/";
 const EMAIL_CONTACT = "ggokulnandahv@gmail.com";
 
-/* --------------- Global Styles --------------- */
+/* --------------- small inline global styles --------------- */
 const GlobalStyles = () => (
   <style>{`
     @keyframes floatA { 0% { transform: translateY(0) translateX(0) } 50% { transform: translateY(-18px) translateX(12px) } 100% { transform: translateY(0) translateX(0) } }
@@ -29,7 +27,7 @@ const GlobalStyles = () => (
     .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 
     .lds-ring { display: inline-block; position: relative; width: 48px; height: 48px; }
-    .lds-ring div { box-sizing: border-box; display: block; position: absolute; width: 40px; height: 40px; margin: 4px; border: 4px solid #7b45ff; border-radius: 50%; animation: lds-ring 1.2s cubic-bezier(.5,0,.5,1) infinite; border-color: #7b45ff transparent transparent transparent; }
+    .lds-ring div { box-sizing: border-box; position: absolute; width: 40px; height: 40px; margin: 4px; border: 4px solid #7b45ff; border-radius: 50%; animation: lds-ring 1.2s infinite linear; border-color: #7b45ff transparent transparent transparent; }
     .lds-ring div:nth-child(1) { animation-delay: -0.45s; } .lds-ring div:nth-child(2) { animation-delay: -0.3s; } .lds-ring div:nth-child(3) { animation-delay: -0.15s; }
     @keyframes lds-ring { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
@@ -37,67 +35,86 @@ const GlobalStyles = () => (
   `}</style>
 );
 
-/* ---------------- App Component (start) ---------------- */
+/* ------------------ App (start) ------------------ */
 export default function App() {
+  // theme
   const [theme, setTheme] = useState(() => {
     try { return localStorage.getItem("theme") || "dark"; } catch { return "dark"; }
   });
 
-  // GitHub repos
+  // repos
   const [repos, setRepos] = useState([]);
   const [reposLoading, setReposLoading] = useState(true);
   const [reposError, setReposError] = useState(null);
 
-  // project modal
+  // modal & selection
   const [selectedProject, setSelectedProject] = useState(null);
   const [projectModalOpen, setProjectModalOpen] = useState(false);
 
-  // UI loading overlay
+  // UI
   const [appLoading, setAppLoading] = useState(true);
-
-  // visitor counter
   const [visitors, setVisitors] = useState(null);
-
-  // scroll progress
   const [scrollPct, setScrollPct] = useState(0);
 
-  /* Theme effect */
+  // apply theme to document
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark");
-    try { localStorage.setItem("theme", theme); } catch {}
+    try {
+      document.documentElement.classList.toggle("dark", theme === "dark");
+      localStorage.setItem("theme", theme);
+    } catch {}
   }, [theme]);
 
-  /* Fetch GitHub repos (all public repos) */
-  useEffect(() => {
-    let mounted = true;
-    async function loadRepos() {
-      setReposLoading(true);
-      try {
-        const res = await fetch(GITHUB_API);
-        if (!res.ok) throw new Error(`GitHub API ${res.status}`);
-        const data = await res.json();
-        if (!mounted) return;
-        setRepos(data.map(r => ({
-          id: r.id,
-          name: r.name,
-          html_url: r.html_url,
-          description: r.description,
-          language: r.language,
-          homepage: r.homepage,
-          updated_at: r.updated_at,
-          fork: r.fork
-        })));
-      } catch (err) {
-        if (mounted) setReposError(err.message);
-      } finally {
-        if (mounted) setReposLoading(false);
-      }
-    }
-    loadRepos();
-    return () => { mounted = false; };
-  }, []);
+  /* --------------- GitHub fetch logic (fixed + stable) --------------- */
+const fetchRepos = useCallback(async () => {
+  setReposLoading(true);
+  setReposError(null);
 
-  /* Loading overlay logic — show until repos finish (short min delay) */
+  try {
+    const res = await fetch(GITHUB_API, {
+      headers: {
+        "Accept": "application/vnd.github+json"
+      }
+    });
+
+    if (!res.ok) {
+      throw new Error(`GitHub API error: ${res.status}`);
+    }
+
+    const data = await res.json();
+
+    const mapped = (data || []).map(r => ({
+      id: r.id,
+      name: r.name,
+      html_url: r.html_url,
+      description: r.description,
+      language: r.language,
+      homepage: r.homepage,
+      updated_at: r.updated_at,
+      fork: r.fork
+    }));
+
+    mapped.sort((a, b) =>
+      (b.updated_at || "").localeCompare(a.updated_at || "")
+    );
+
+    setRepos(mapped);
+
+  } catch (err) {
+    setReposError(err.message);
+  } finally {
+    setReposLoading(false);
+  }
+}, []);
+
+
+  // initial fetch + interval auto-refresh every 60s
+  useEffect(() => {
+    fetchRepos();
+    const interval = setInterval(fetchRepos, 60_000); // 60 seconds
+    return () => clearInterval(interval);
+  }, [fetchRepos]);
+
+  // min loader
   useEffect(() => {
     const minMs = 700;
     const start = Date.now();
@@ -112,7 +129,7 @@ export default function App() {
     })();
   }, [reposLoading]);
 
-  /* Scroll progress */
+  // scroll progress
   useEffect(() => {
     function onScroll() {
       const scrolled = window.scrollY || window.pageYOffset;
@@ -125,7 +142,7 @@ export default function App() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  /* Visitor count (CountAPI fallback to localStorage) */
+  // visitor count (CountAPI fallback to local)
   useEffect(() => {
     const keyLocal = "gokul_portfolio_visits";
     (async () => {
@@ -146,10 +163,8 @@ export default function App() {
       }
     })();
   }, []);
-// ---------------- PART 2 of 4 ----------------
-// src/App.jsx (part 2) — main layout: header, hero, about, projects, experience, skills
-
-  /* ---------------- handlers (inside App scope) ---------------- */
+// src/App.jsx — PART 2 of 3 (continues)
+  // handlers (open/close modal)
   function openProjectModal(repo) {
     setSelectedProject(repo);
     setProjectModalOpen(true);
@@ -160,9 +175,8 @@ export default function App() {
     setTimeout(() => setSelectedProject(null), 220);
   }
 
-  /* ---------------- render (continuation of App) ---------------- */
   return (
-    <div className={`min-h-screen theme-fade bg-gradient-to-b from-slate-900 to-[#050816] text-white ${theme === "light" ? "bg-white text-black" : ""}`}>
+    <div className={`min-h-screen theme-fade bg-gradient-to-b from-slate-900 to-[#050816] text-white ${theme === "light" ? "text-slate-900 bg-white" : ""}`}>
       <GlobalStyles />
 
       {/* Top progress bar */}
@@ -189,148 +203,187 @@ export default function App() {
       </AnimatePresence>
 
       {/* Header / Nav */}
-      <header className="sticky top-0 z-40 bg-black/30 backdrop-blur-md border-b border-white/10">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="text-lg font-bold">Gokul Nanda HV</div>
-            <div className="hidden md:block text-sm text-gray-400">• Java • Automation • Android</div>
-          </div>
+      <header className="sticky top-0 z-40">
+        <div className="backdrop-blur-md bg-white/3 dark:bg-black/40 border-b border-white/6 dark:border-black/10">
+          <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="text-lg md:text-xl font-bold tracking-wide">Gokul Nanda HV</div>
+              <div className="hidden md:flex items-center gap-3 text-sm text-gray-300">
+                <a href="#about" className="hover:text-white">About</a>
+                <a href="#projects" className="hover:text-white">Projects</a>
+                <a href="#skills" className="hover:text-white">Skills</a>
+                <a href="#contact" className="hover:text-white">Contact</a>
+              </div>
+            </div>
 
-          <div className="flex items-center gap-3">
-            <a href="#about" className="hover:text-blue-300">About</a>
-            <a href="#projects" className="hover:text-blue-300">Projects</a>
-            <a href="#experience" className="hover:text-blue-300">Experience</a>
-            <a href="#blogs" className="hover:text-blue-300">Blog</a>
-            <a href="#contact" className="hover:text-blue-300">Contact</a>
+            <div className="flex items-center gap-3">
+              {/* GitHub button uses white text so it's visible on dark nav */}
+              <a href={`https://github.com/${GITHUB_USER}`} target="_blank" rel="noreferrer" className="text-sm px-3 py-2 rounded-md bg-white/10 text-white hover:bg-white/20">GitHub</a>
+              <a href={LINKEDIN} target="_blank" rel="noreferrer" className="text-sm px-3 py-2 rounded-md bg-white/5 hover:bg-white/7">LinkedIn</a>
 
-            <button onClick={() => setTheme(t => t === "dark" ? "light" : "dark")} className="px-2 py-1 bg-white/10 rounded-md">
-              {theme === "dark" ? "🌙" : "☀️"}
-            </button>
+              <button
+                onClick={() => setTheme(prev => prev === "dark" ? "light" : "dark")}
+                aria-label="Toggle theme"
+                className="ml-2 p-2 rounded-md bg-white/5 hover:bg-white/7"
+                title="Toggle dark / light"
+              >
+                {theme === "dark" ? "🌙" : "☀️"}
+              </button>
 
-            <a href="/resume.pdf" className="ml-2 px-3 py-2 rounded-md bg-gradient-to-r from-[#7b45ff] to-[#2fd3ff] text-black">Resume</a>
+              <a href="/resume.pdf" className="ml-2 px-3 py-2 rounded-md bg-gradient-to-r from-[#7b45ff] to-[#2fd3ff] text-black font-medium text-sm">Download Resume</a>
+            </div>
           </div>
         </div>
       </header>
 
       {/* MAIN */}
-      <main className="max-w-6xl mx-auto px-4 py-12">
-        {/* HERO */}
-        <section id="hero" className="text-center relative">
-          <img src="/photo.jpg" alt="Gokul" className="w-48 h-48 rounded-xl mx-auto object-cover shadow-2xl border border-white/20" />
-          <h1 className="mt-6 text-5xl font-extrabold">Gokul Nanda HV</h1>
-          <div className="mt-3 text-xl text-gray-300"><TypewriterText /></div>
-          <div className="absolute right-6 top-6 hidden md:block"><ThreeDAvatar /></div>
+      <main className="max-w-6xl mx-auto px-4 py-8 relative">
+        {/* HERO (Option A) */}
+        <section id="hero" className="grid md:grid-cols-2 gap-8 items-center mt-6">
+          {/* LEFT: text */}
+          <motion.div initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} transition={{duration:0.6}} className="space-y-6">
+            <h1 className="text-4xl md:text-6xl font-extrabold leading-tight">
+              Hi, I'm <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#b17cff] to-[#2fd3ff]">Gokul Nanda HV</span>
+            </h1>
+            <p className="text-gray-300 max-w-xl">
+              Java Full-Stack Developer • Test Automation Engineer • Android Developer.
+              I build robust backend systems, dependable automation frameworks, and user-focused apps.
+            </p>
 
-          <div className="mt-6 flex justify-center gap-3">
-            <a href={`https://github.com/${GITHUB_USER}`} target="_blank" rel="noreferrer" className="px-5 py-2 rounded-lg bg-white/10">GitHub</a>
-            <a href={LINKEDIN} target="_blank" rel="noreferrer" className="px-5 py-2 rounded-lg border border-white/10">LinkedIn</a>
-            <a href="#projects" className="px-5 py-2 rounded-lg bg-gradient-to-r from-[#7b45ff] to-[#2fd3ff] text-black">View Projects</a>
-          </div>
+            <div className="flex gap-3 flex-wrap">
+              <a href={`https://github.com/${GITHUB_USER}`} target="_blank" rel="noreferrer" className="px-5 py-3 rounded-lg bg-white/10 text-white font-semibold hover:scale-[1.02] transform transition">View GitHub</a>
+              <a href={LINKEDIN} target="_blank" rel="noreferrer" className="px-5 py-3 rounded-lg border border-white/10 hover:bg-white/5">LinkedIn</a>
+              <a href="#projects" className="px-5 py-3 rounded-lg bg-gradient-to-r from-[#7b45ff] to-[#2fd3ff] text-black font-semibold">Featured Projects</a>
+            </div>
+
+            <div className="flex gap-6 text-sm text-gray-400">
+              <div>📍 Bengaluru, India</div>
+              <div>✉️ <a className="underline" href={`mailto:${EMAIL_CONTACT}`}>{EMAIL_CONTACT}</a></div>
+            </div>
+          </motion.div>
+
+          {/* RIGHT: profile card (responsive, square image) */}
+          <motion.div initial={{opacity:0, scale:.98}} animate={{opacity:1, scale:1}} transition={{duration:.6}} className="flex justify-center md:justify-end">
+            <div className="w-full max-w-sm p-4 rounded-3xl bg-white/5 border border-white/6 backdrop-blur-md shadow-2xl">
+              <div className="rounded-2xl overflow-hidden border border-white/6 aspect-[4/4]">
+                <img src="/photo.jpg" alt="Gokul" className="w-full h-full object-cover" />
+              </div>
+
+              <div className="mt-4 flex items-center gap-4">
+                <div className="w-20 h-20 p-2 rounded-xl bg-gradient-to-br from-[#2fd3ff]/20 to-[#b17cff]/20 border border-white/6 flex items-center justify-center">
+                  <SvgAvatar />
+                </div>
+                <div>
+                  <div className="text-sm text-gray-300">Futuristic Avatar</div>
+                  <div className="font-medium">Developer • Tester • Builder</div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
         </section>
 
         {/* ABOUT */}
-        <section id="about" className="mt-16">
-          <h2 className="text-3xl font-semibold">About Me</h2>
-          <p className="mt-4 text-gray-300 leading-relaxed">
-            I am a results-driven Full Stack & QA Automation Engineer experienced in Java, Spring Boot,
-            Selenium, Android and Python. I build scalable systems, robust automation suites, and
-            production-quality mobile apps — with focus on reliability, testability and performance.
-          </p>
-
-          <div className="mt-4 text-sm text-gray-400">Visitors: {visitors ?? "—"}</div>
+        <section id="about" className="mt-12">
+          <motion.div initial={{opacity:0, y:8}} whileInView={{opacity:1, y:0}} viewport={{once:true}} className="p-6 rounded-2xl bg-white/3 border border-white/6">
+            <h2 className="text-2xl font-semibold">About Me</h2>
+            <p className="mt-3 text-gray-300">
+              Full Stack Developer & Test Automation Engineer experienced with Java, Spring Boot, Selenium, Android, and Python.
+              I build production-ready systems focusing on reliability, testability and performance.
+            </p>
+          </motion.div>
         </section>
 
         {/* PROJECTS */}
-        <section id="projects" className="mt-16">
+        <section id="projects" className="mt-12">
           <div className="flex items-baseline justify-between">
-            <h2 className="text-3xl font-semibold">Projects</h2>
-            <div className="text-sm text-gray-400">{reposLoading ? "Loading repos..." : `${repos.length} public repos`}</div>
+            <h2 className="text-2xl font-semibold">Projects</h2>
+            <div className="text-sm text-gray-400">{reposLoading ? "Loading repos..." : `${repos.length} public repos found`}</div>
           </div>
 
           <div className="mt-6 grid md:grid-cols-3 gap-6">
-            {reposError && <div className="col-span-3 text-red-400">Error: {reposError}</div>}
-            {reposLoading && Array.from({length:3}).map((_,i)=>(<div key={i} className="p-4 bg-white/5 rounded-xl animate-pulse h-40" />))}
-            {!reposLoading && repos.length === 0 && <div className="col-span-3 text-gray-400">No public repos found.</div>}
-            {!reposLoading && repos.slice(0, 12).map(repo => (
-              <motion.div key={repo.id} whileHover={{ y:-6 }} className="p-4 bg-white/10 rounded-xl">
+            {reposError && <div className="col-span-3 text-red-400">Error fetching GitHub: {reposError}</div>}
+
+            {reposLoading && (Array.from({length:3}).map((_,i)=>(<div key={i} className="p-4 bg-[#0f1720] rounded-xl animate-pulse h-40" />)))}
+
+            {!reposLoading && repos.length === 0 && (<div className="col-span-3 text-gray-400">No public repos found — push projects to GitHub.</div>)}
+
+            {!reposLoading && repos.slice(0,9).map(repo => (
+              <motion.div key={repo.id} whileHover={{y:-6}} className="p-4 bg-[#111727] rounded-xl border border-white/6 group">
                 <ProjectCard repo={repo} onOpen={openProjectModal} />
               </motion.div>
             ))}
           </div>
-        </section>
 
-        {/* EXPERIENCE */}
-        <section id="experience" className="mt-16">
-          <h2 className="text-3xl font-semibold">Experience</h2>
-          <div className="mt-6 space-y-4">
-            <ExperienceCard
-              title="Software Testing Intern — Robowaves"
-              time="May 2025 – Present"
-              desc={`• Built Selenium + Java automation suites and CI integrations.\n• Implemented Page Object Model and reusable helpers to speed tests.\n• Improved regression stability and reduced manual testing time.`}
-            />
-            <ExperienceCard
-              title="AI Intern — Samsung Lab"
-              time="Jun 2025"
-              desc={`• Implemented preprocessing pipelines for healthcare models.\n• Optimized Python ETL scripts for performance and reliability.\n• Assisted in creating reproducible PoC ML demos.`}
-            />
-          </div>
+          {/* Note removed the extra tip line if you requested editing — but keep one helpful note */}
+          <div className="mt-4 text-sm text-gray-400">Tip: add good README & screenshots to repos for recruiters.</div>
         </section>
 
         {/* SKILLS */}
-        <section id="skills" className="mt-16">
-          <h2 className="text-3xl font-semibold">Skills</h2>
+        <section id="skills" className="mt-12">
+          <motion.h3 initial={{opacity:0}} whileInView={{opacity:1}} viewport={{once:true}} className="text-2xl font-semibold">Skills</motion.h3>
           <div className="mt-4 flex flex-wrap gap-3">
-            {["Java","Spring Boot","Selenium","React","Android","Python","MySQL","Docker","Jenkins"].map(s=>(
-              <span key={s} className="px-4 py-2 bg-white/10 rounded-full">{s}</span>
-            ))}
+            {["Java","Spring Boot","Android","Selenium","Python","React","MySQL","Docker","Jenkins","Automation"].map(s=>(<span key={s} className="px-3 py-1 bg-white/5 rounded-full border border-white/6 text-sm">{s}</span>))}
           </div>
         </section>
-// ---------------- PART 3 of 4 ----------------
-// src/App.jsx (part 3) — timeline, certificates, blog, ContactSection (EmailJS)
-
-        {/* TECH TIMELINE */}
-        <TechTimeline />
-
-        {/* CERTIFICATES */}
-        <CertificatesSection />
-
-        {/* BLOG (static examples) */}
-        <section id="blogs" className="mt-16">
-          <h2 className="text-3xl font-semibold">Blog</h2>
-          <p className="text-gray-400 mt-2">Short engineering notes — click to read.</p>
-          <div className="mt-6 grid md:grid-cols-2 gap-4">
-            <article className="p-4 bg-white/10 rounded-xl hover:scale-[1.02] transition cursor-pointer" onClick={() => alert("Open blog modal or integrate CMS")}>
-              <div className="font-semibold">Designing Reliable Automation Frameworks</div>
-              <div className="text-sm text-gray-400 mt-1">2025-05-20</div>
-              <p className="mt-3 text-gray-300 line-clamp-3">Best practices, POM, CI integration and flaky test reduction...</p>
-            </article>
-            <article className="p-4 bg-white/10 rounded-xl hover:scale-[1.02] transition cursor-pointer" onClick={() => alert("Open blog modal or integrate CMS")}>
-              <div className="font-semibold">Scaling Spring Boot Services</div>
-              <div className="text-sm text-gray-400 mt-1">2024-11-12</div>
-              <p className="mt-3 text-gray-300 line-clamp-3">Tips to design scalable microservices and reduce latency...</p>
-            </article>
+// src/App.jsx — PART 3 of 3 (end of file)
+        {/* EXPERIENCE */}
+        <section className="mt-12">
+          <h3 className="text-2xl font-semibold">Experience</h3>
+          <div className="mt-4 space-y-4">
+            <ExperienceCard title="Software Testing Intern — Robowaves" time="May 2025 – Present" desc="Built Selenium automation suites and improved regression reliability." />
+            <ExperienceCard title="AI/ Python Intern — Samsung Lab" time="Jun 2025" desc="Worked on preprocessing and sample AI prototypes for healthcare." />
           </div>
         </section>
 
-        {/* CONTACT — replace old contact with the ContactSection component */}
-        <ContactSection />
+        {/* CONTACT */}
+        <section id="contact" className="mt-12 mb-20">
+          <h3 className="text-2xl font-semibold">Contact</h3>
+          <div className="mt-4 md:flex md:gap-8">
+            <div className="md:w-1/2 text-gray-300">
+              <p>Email: <a href={`mailto:${EMAIL_CONTACT}`} className="text-blue-300 underline">{EMAIL_CONTACT}</a></p>
+              <p className="mt-2">Location: Bengaluru, Karnataka, India</p>
+              <div className="mt-4 flex gap-3">
+                <a href={`https://github.com/${GITHUB_USER}`} target="_blank" rel="noreferrer" className="underline text-blue-300">GitHub</a>
+                <a href={LINKEDIN} target="_blank" rel="noreferrer" className="underline text-blue-300">LinkedIn</a>
+              </div>
+            </div>
 
+            <div className="md:w-1/2 mt-6 md:mt-0">
+              <ContactSection />
+            </div>
+          </div>
+        </section>
       </main>
 
-      {/* FOOTER */}
       <footer className="text-center text-sm text-gray-400 py-6">© {new Date().getFullYear()} Gokul Nanda HV — Built with React & Tailwind</footer>
 
-      {/* PROJECT MODAL */}
+      {/* project modal */}
       <ProjectModal project={selectedProject} open={projectModalOpen} onClose={closeProjectModal} />
-
     </div>
   );
 }
-/* End of App component */
-// ---------------- PART 4 of 4 ----------------
-// src/App.jsx (part 4) — small components + modals + contact form
 
-/* ---------------- small components ---------------- */
+/* ----------------- small subcomponents ----------------- */
+
+function SvgAvatar(){
+  return (
+    <svg width="64" height="64" viewBox="0 0 64 64" className="animate-float" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="gradA" x1="0" x2="1">
+          <stop offset="0%" stopColor="#b17cff"/>
+          <stop offset="100%" stopColor="#2fd3ff"/>
+        </linearGradient>
+      </defs>
+
+      <circle cx="32" cy="32" r="30" fill="url(#gradA)" opacity="0.08" stroke="url(#gradA)" strokeWidth="1.5"/>
+      <g transform="translate(0,0)">
+        <ellipse cx="32" cy="36" rx="11" ry="8" fill="#ffffff" opacity="0.06"/>
+        <rect x="22" y="18" rx="5" ry="5" width="20" height="18" fill="url(#gradA)" opacity="0.18"/>
+        <circle cx="32" cy="27" r="3" fill="#fff"/>
+      </g>
+    </svg>
+  );
+}
 
 function TypewriterText() {
   const roles = ["Java Developer", "QA Automation Engineer", "Android Developer", "Full Stack Developer"];
@@ -344,6 +397,7 @@ function TypewriterText() {
   );
 }
 
+/* ---------------- 3D Avatar (single declaration only) ---------------- */
 function ThreeDAvatar() {
   return (
     <motion.div animate={{ rotateY: 360 }} transition={{ repeat: Infinity, duration: 6, ease: "linear" }} className="w-20 h-20">
@@ -363,82 +417,41 @@ function FloatingBlobs() {
   return (
     <div className="fixed inset-0 -z-20 pointer-events-none">
       <div className="absolute -left-40 -top-40 w-[640px] h-[640px] rounded-full opacity-60" style={{ background: "radial-gradient(circle at 20% 20%, #b17cff, transparent 30%), radial-gradient(circle at 80% 80%, #2fd3ff, transparent 30%)", filter: "blur(60px)", animation: "floatA 12s ease-in-out infinite" }} />
-      <div className="absolute right-[-150px] top-10 w-[520px] h-[520px] rounded-full opacity-60" style={{ background: "radial-gradient(circle at 20% 20%, #7b45ff, transparent 30%), radial-gradient(circle at 80% 80%, #00d4ff, transparent 30%)", filter: "blur(50px)", animation: "floatB 10s ease-in-out infinite" }} />
+      <div className="absolute -right-[150px] top-10 w-[520px] h-[520px] rounded-full opacity-60" style={{ background: "radial-gradient(circle at 20% 20%, #7b45ff, transparent 30%), radial-gradient(circle at 80% 80%, #00d4ff, transparent 30%)", filter: "blur(50px)", animation: "floatB 10s ease-in-out infinite" }} />
     </div>
   );
 }
 
-function ProjectCard({ repo, onOpen }) {
-  const img = `/projects/${repo.name.toLowerCase()}.png`;
+function ProjectCard({repo, onOpen}) {
+  const imgPath = `/projects/${repo.name.toLowerCase()}.png`;
   return (
     <div>
-      <div className="h-36 rounded-lg overflow-hidden bg-white/5 cursor-pointer" onClick={() => onOpen(repo)}>
-        <img src={img} alt={repo.name} onError={(e) => (e.currentTarget.src = "/projects/placeholder.png")} className="w-full h-full object-cover" />
+      <div className="h-36 rounded-lg overflow-hidden bg-gradient-to-br from-white/3 to-white/6 mb-3 flex items-center justify-center cursor-pointer" onClick={() => onOpen(repo)}>
+        <img src={imgPath} alt={repo.name} onError={(e)=>{ e.currentTarget.src='/projects/placeholder.png'; }} className="w-full h-full object-cover" />
       </div>
 
-      <div className="mt-2 font-semibold">{repo.name}</div>
+      <div className="font-semibold">{repo.name}</div>
       <div className="text-sm text-gray-300 mt-1 line-clamp-3">{repo.description}</div>
-
-      <div className="mt-3 flex gap-2">
-        <button onClick={() => onOpen(repo)} className="px-3 py-2 rounded-md bg-gradient-to-r from-[#7b45ff] to-[#2fd3ff] text-black text-sm">Preview</button>
-        <a href={repo.html_url} target="_blank" rel="noreferrer" className="px-3 py-2 rounded-md border border-white/10 text-sm">Code</a>
+      <div className="mt-3 flex gap-3">
+        <a href={repo.html_url} target="_blank" rel="noreferrer" className="px-3 py-2 rounded-md bg-gradient-to-r from-[#7b45ff] to-[#2fd3ff] text-black text-sm">View Code</a>
+        {repo.homepage ? <a href={repo.homepage} target="_blank" rel="noreferrer" className="px-3 py-2 rounded-md border border-white/6 text-sm">Live</a> : null}
       </div>
     </div>
   );
 }
 
-function ExperienceCard({ title, time, desc }) {
+function ExperienceCard({title, time, desc}) {
   return (
-    <motion.div whileHover={{ y: -6, boxShadow: "0 10px 30px rgba(0,0,0,0.45)" }} className="p-5 bg-white/10 rounded-xl border border-white/10">
+    <div className="p-4 bg-[#0f1720] rounded-xl border border-white/6">
       <div className="flex justify-between items-start">
-        <div className="font-semibold">{title}</div>
+        <div className="font-semibold text-lg">{title}</div>
         <div className="text-sm text-gray-400">{time}</div>
       </div>
-      <p className="mt-3 text-gray-300 text-sm whitespace-pre-line">{desc}</p>
-    </motion.div>
+      <p className="text-gray-300 mt-2 text-sm">{desc}</p>
+    </div>
   );
 }
 
-function TechTimeline() {
-  const items = ["Java","Spring Boot","Selenium","React","Android","MySQL","Docker","Jenkins"];
-  return (
-    <section className="mt-16">
-      <h2 className="text-3xl font-semibold">Tech Stack Timeline</h2>
-      <div className="relative mt-8 border-l border-white/10 pl-6">
-        {items.map((tech, i) => (
-          <motion.div key={tech} initial={{ opacity: 0, x: -12 }} whileInView={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.08 }} className="mb-6 flex items-start gap-3">
-            <div className="w-3 h-3 rounded-full bg-gradient-to-r from-[#7b45ff] to-[#2fd3ff]" />
-            <div className="text-gray-300">{tech}</div>
-          </motion.div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function CertificatesSection() {
-  const certs = [
-    { id: 1, title: "Robowaves Internship", sub: "Automation & Selenium", file: "/certs/robowaves.pdf" },
-    { id: 2, title: "Samsung AI Internship", sub: "Healthcare AI", file: "/certs/samsung.pdf" },
-    { id: 3, title: "Java Full Stack Course", sub: "Course Completion", file: "/certs/java.pdf" }
-  ];
-  return (
-    <section className="mt-16">
-      <h2 className="text-3xl font-semibold">Certificates & Achievements</h2>
-      <div className="mt-6 grid md:grid-cols-3 gap-4">
-        {certs.map(c => (
-          <a key={c.id} href={c.file} target="_blank" rel="noreferrer" className="p-4 bg-white/10 rounded-xl border border-white/10 hover:scale-[1.02] transition">
-            <div className="font-semibold">{c.title}</div>
-            <div className="text-sm text-gray-400 mt-1">{c.sub}</div>
-            <div className="mt-3 text-xs text-blue-300">View certificate</div>
-          </a>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/* ---------------- Project Modal ---------------- */
 function ProjectModal({ project, open, onClose }) {
   if (!open || !project) return null;
   return (
@@ -464,7 +477,7 @@ function ProjectModal({ project, open, onClose }) {
   );
 }
 
-/* ---------------- ContactSection (EmailJS) ---------------- */
+/* ---------------- CONTACT (EmailJS) ---------------- */
 function ContactSection() {
   const [form, setForm] = useState({ name: "", email: "", message: "" });
   const [sending, setSending] = useState(false);
@@ -499,42 +512,12 @@ function ContactSection() {
   };
 
   return (
-    <section id="contact" className="mt-16 mb-24">
-      <h2 className="text-3xl font-semibold">Contact Me</h2>
-      <p className="text-gray-400 mt-2">I usually respond within a few hours.</p>
-
+    <section id="contact-form" className="mt-0">
       <form onSubmit={handleSend} className="mt-6 max-w-xl space-y-4">
-        <input
-          required
-          type="text"
-          placeholder="Your Name"
-          value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.target.value })}
-          className="w-full p-3 rounded-lg bg-white/10 border border-white/20"
-        />
-
-        <input
-          required
-          type="email"
-          placeholder="Your Email"
-          value={form.email}
-          onChange={(e) => setForm({ ...form, email: e.target.value })}
-          className="w-full p-3 rounded-lg bg-white/10 border border-white/20"
-        />
-
-        <textarea
-          required
-          rows={5}
-          placeholder="Your Message"
-          value={form.message}
-          onChange={(e) => setForm({ ...form, message: e.target.value })}
-          className="w-full p-3 rounded-lg bg-white/10 border border-white/20"
-        />
-
-        <button type="submit" disabled={sending} className="px-6 py-3 rounded-lg bg-gradient-to-r from-[#7b45ff] to-[#2fd3ff] text-black font-semibold w-full disabled:opacity-50">
-          {sending ? "Sending..." : "Send Message"}
-        </button>
-
+        <input required type="text" placeholder="Your Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full p-3 rounded-lg bg-white/10 border border-white/20" />
+        <input required type="email" placeholder="Your Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full p-3 rounded-lg bg-white/10 border border-white/20" />
+        <textarea required rows={5} placeholder="Your Message" value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} className="w-full p-3 rounded-lg bg-white/10 border border-white/20" />
+        <button type="submit" disabled={sending} className="px-6 py-3 rounded-lg bg-gradient-to-r from-[#7b45ff] to-[#2fd3ff] text-black font-semibold w-full">{sending ? "Sending..." : "Send Message"}</button>
         {status && <p className="text-sm mt-2 text-green-300">{status}</p>}
       </form>
     </section>
