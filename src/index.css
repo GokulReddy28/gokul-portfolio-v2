@@ -1,8 +1,6 @@
-/* src/index.css */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
 
 /* small global overrides */
-html, body, #root { height: 100%; }
-body { background-color: #050816; }
+/* html, body, #root { height: 100%; }
+body { background-color: #050816; } */ 
