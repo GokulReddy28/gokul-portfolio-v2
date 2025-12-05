@@ -70,11 +70,9 @@ npm install
 3️⃣ Start development server
 npm run dev
 
-🌐 Live Demo (optional)
+🌐 Live Demo 
 
-If deployed, add the link here:
 
-https://<your-deployment-url>
 
 📬 Contact Me
 
