@@ -70,12 +70,13 @@ const fetchRepos = useCallback(async () => {
   setReposError(null);
 
   try {
-    const res = await fetch(GITHUB_API, {
+   const res = await fetch(GITHUB_API, {
   headers: {
     "Accept": "application/vnd.github+json",
-    "Authorization": `token ${import.meta.env.VITE_GITHUB_TOKEN}`
+    "Authorization": `Bearer ${import.meta.env.VITE_GITHUB_TOKEN}`
   }
 });
+
 
 
     if (!res.ok) {
