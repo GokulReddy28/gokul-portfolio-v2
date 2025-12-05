@@ -1,16 +1,90 @@
-# React + Vite
+📌 Gokul Portfolio V2
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern, fast, and fully responsive portfolio website built using React + Vite + TailwindCSS + Framer Motion.
+Designed to showcase my projects, skills, experience, and contact details in a clean and elegant UI.
 
-Currently, two official plugins are available:
+🚀 Tech Stack
+Technology	Purpose
+React + Vite	Frontend framework & fast dev environment
+TailwindCSS	Utility-first styling
+Framer Motion	Smooth animations & transitions
+GitHub API	Auto-fetching public repositories
+JavaScript (ES6+)	Core language
+🎯 Features
+✔ Modern UI with Smooth Animations
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Built with Framer Motion for a sleek and interactive experience.
 
-## React Compiler
+✔ Auto-Fetch GitHub Repositories
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Projects are automatically pulled from my GitHub profile:
+🔗 https://github.com/GokulReddy28
 
-## Expanding the ESLint configuration
+✔ Light / Dark Mode Toggle
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Switch UI themes dynamically.
+
+✔ Responsive Design
+
+Looks great on desktop, tablet, and mobile.
+
+✔ Sections Included
+
+Hero Banner
+
+About
+
+Projects
+
+Skills
+
+Experience
+
+Contact
+
+Resume Download Button
+
+🧩 Project Structure
+├─ public/
+│   ├─ photo.jpg             # Profile image
+│   └─ projects/             # Project thumbnails
+│
+├─ src/
+│   ├─ App.jsx               # Main file
+│   ├─ index.css             # Tailwind styles
+│   └─ components/ (optional)
+│
+├─ index.html
+├─ tailwind.config.js
+├─ postcss.config.js
+└─ package.json
+
+🛠️ Setup Instructions
+1️⃣ Clone this repository
+git clone https://github.com/GokulReddy28/gokul-portfolio-v2
+cd gokul-portfolio-v2
+
+2️⃣ Install dependencies
+npm install
+
+3️⃣ Start development server
+npm run dev
+
+🌐 Live Demo (optional)
+
+If deployed, add the link here:
+
+https://<your-deployment-url>
+
+📬 Contact Me
+
+📧 Email:
+→ ggokulnandahv@gmail.com
+
+🔗 LinkedIn:
+→ https://www.linkedin.com/in/gokul-nanda-hv-677b8137a/
+
+🐙 GitHub:
+→ https://github.com/GokulReddy28
+
+⭐ If you like this project, consider giving it a star ⭐ on GitHub!
